@@ -10,6 +10,7 @@ dist/
 *.apk
 *.aab
 
+
 # Keystore files (NEVER commit)
 *.jks
 *.keystore
@@ -47,3 +48,6 @@ logs/
 *.temp
 *.bak
 *.backup
+
+# Godot Android template libs (too large, generated)
+android/build/libs/**/*.aar
