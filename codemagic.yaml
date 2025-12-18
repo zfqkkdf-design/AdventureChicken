@@ -8,6 +8,8 @@ workflows:
         - codemagic
       vars:
         GODOT_VERSION: "4.2.2"
+      android_signing:
+        - "1"
     scripts:
       - name: Install dependencies
         script: |
@@ -35,6 +37,13 @@ workflows:
         script: |
           set -e
           cd $CM_BUILD_DIR
+          
+          # Диагностический вывод переменных CodeMagic
+          echo "=== CodeMagic signing variables diagnostics ==="
+          echo "CM_KEYSTORE_PATH=$CM_KEYSTORE_PATH"
+          env | grep -E '^CM_KEYSTORE|^CM_KEY_ALIAS|^CM_KEY_PASSWORD' || true
+          ls -la "$CM_KEYSTORE_PATH" || true
+          echo "================================================"
           
           # Проверим, что CodeMagic реально дал переменные
           test -f "$CM_KEYSTORE_PATH" || (echo "CM_KEYSTORE_PATH not found" && exit 1)
