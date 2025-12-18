@@ -1,6 +1,6 @@
 workflows:
   android-release:
-    name: Android Release Build
+    name: Android Release (APK + AAB)
     max_build_duration: 120
     instance_type: linux_x2
     environment:
@@ -8,146 +8,65 @@ workflows:
         - codemagic
       vars:
         GODOT_VERSION: "4.2.2"
-      android_signing:
-        - keystore_reference
     scripts:
       - name: Install dependencies
         script: |
           set -e
-          echo "Installing dependencies..."
           sudo apt-get update
           sudo apt-get install -y openjdk-17-jdk unzip wget
           java -version
-          javac -version
-      - name: Install Godot and Export Templates
+      - name: Install Godot and export templates
         script: |
           set -e
-          GODOT_VERSION="${GODOT_VERSION:-4.2.2}"
-          GODOT_ZIP="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
-          GODOT_BIN="Godot_v${GODOT_VERSION}-stable_linux.x86_64"
-          TEMPLATES_ZIP="Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
-          
-          echo "Installing Godot ${GODOT_VERSION}..."
           cd /tmp
-          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${GODOT_ZIP}"
-          unzip -o "${GODOT_ZIP}"
-          chmod +x "${GODOT_BIN}"
-          sudo mv "${GODOT_BIN}" /usr/local/bin/godot
+          
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          unzip Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
+          chmod +x Godot_v${GODOT_VERSION}-stable_linux.x86_64
+          sudo mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 /usr/local/bin/godot
+          
+          mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          unzip Godot_v${GODOT_VERSION}-stable_export_templates.tpz
+          cp -r templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          
           godot --version
-          
-          echo "Installing Android export templates..."
-          TEMPLATES_BASE_DIR="/home/builder/.local/share/godot/export_templates"
-          TEMPLATES_DIR="${TEMPLATES_BASE_DIR}/${GODOT_VERSION}.stable"
-          mkdir -p "${TEMPLATES_DIR}"
-          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${TEMPLATES_ZIP}"
-          unzip -o "${TEMPLATES_ZIP}"
-          
-          if [ -d "templates" ]; then
-            echo "Found templates directory, copying..."
-            cp -r templates/* "${TEMPLATES_DIR}/"
-            echo "Templates copied to ${TEMPLATES_DIR}"
-          else
-            echo "Warning: templates directory not found, copying all files..."
-            cp -r * "${TEMPLATES_DIR}/" 2>/dev/null || true
-          fi
-          
-          echo "Checking templates installation..."
-          ls -la "${TEMPLATES_DIR}/" | head -20
-          find "${TEMPLATES_DIR}" -name "*.apk" -type f | head -5
-      - name: Setup release keystore
+      - name: Prepare Android signing (from CodeMagic identities)
         script: |
           set -e
-          echo "Setting up release keystore..."
           cd $CM_BUILD_DIR
           
-          # Создаем директорию для keystore
-          KEYSTORE_DIR="$CM_BUILD_DIR/android_signing"
-          mkdir -p "${KEYSTORE_DIR}"
+          # Проверим, что CodeMagic реально дал переменные
+          test -f "$CM_KEYSTORE_PATH" || (echo "CM_KEYSTORE_PATH not found" && exit 1)
+          test -n "$CM_KEYSTORE_PASSWORD" || (echo "CM_KEYSTORE_PASSWORD empty" && exit 1)
+          test -n "$CM_KEY_ALIAS" || (echo "CM_KEY_ALIAS empty" && exit 1)
+          test -n "$CM_KEY_PASSWORD" || (echo "CM_KEY_PASSWORD empty" && exit 1)
           
-          # Копируем secure file -release.keystore в проект
-          if [ -f "$CM_KEYSTORE_PATH" ]; then
-            echo "Copying keystore from secure files..."
-            cp "$CM_KEYSTORE_PATH" "${KEYSTORE_DIR}/-release.keystore"
-            echo "Keystore copied to ${KEYSTORE_DIR}/-release.keystore"
-            ls -lh "${KEYSTORE_DIR}/-release.keystore"
-          else
-            echo "Error: Keystore file not found at $CM_KEYSTORE_PATH"
-            exit 1
-          fi
+          # Кладем keystore в проект (НЕ коммитим)
+          mkdir -p android_signing
+          cp "$CM_KEYSTORE_PATH" android_signing/release.jks
           
-          # Проверяем переменные окружения
-          if [ -z "$KEYSTORE_PASSWORD" ]; then
-            echo "Error: KEYSTORE_PASSWORD environment variable is not set"
-            exit 1
-          fi
-          if [ -z "$KEY_ALIAS" ]; then
-            echo "Error: KEY_ALIAS environment variable is not set"
-            exit 1
-          fi
-          if [ -z "$KEY_PASSWORD" ]; then
-            echo "Error: KEY_PASSWORD environment variable is not set"
-            exit 1
-          fi
+          # Создаём keystore.properties для Gradle (НЕ коммитим)
+          cat > keystore.properties <<EOF
+          storeFile=android_signing/release.jks
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          keyPassword=$CM_KEY_PASSWORD
+          EOF
           
-          # Обновляем export_presets.cfg с паролями и алиасом
-          # Используем абсолютный путь для keystore в export_presets.cfg
-          ABS_KEYSTORE_PATH="${KEYSTORE_DIR}/-release.keystore"
-          sed -i "s|keystore/release=\"res://android_signing/-release.keystore\"|keystore/release=\"${ABS_KEYSTORE_PATH}\"|g" export_presets.cfg
-          sed -i "s|keystore/release_user=\"\"|keystore/release_user=\"${KEYSTORE_PASSWORD}\"|g" export_presets.cfg
-          sed -i "s|keystore/release_password=\"\"|keystore/release_password=\"${KEY_PASSWORD}\"|g" export_presets.cfg
-          sed -i "s|keystore/release_alias=\"\"|keystore/release_alias=\"${KEY_ALIAS}\"|g" export_presets.cfg
-          
-          echo "export_presets.cfg updated with keystore configuration"
-          grep "keystore/release" export_presets.cfg
-      - name: Export Android APK
+          echo "Prepared keystore + keystore.properties"
+          ls -la android_signing
+      - name: Export APK
         script: |
           set -e
-          echo "Exporting Android APK..."
-          cd $CM_BUILD_DIR
           mkdir -p build
-          
-          godot --headless --export-release "Android APK" "$CM_BUILD_DIR/build/ChickenAdventure-release.apk" --path .
-          
-          if [ ! -f "build/ChickenAdventure-release.apk" ]; then
-            echo "Error: APK file was not created"
-            exit 1
-          fi
-          
-          echo "APK exported successfully"
-          ls -lh build/ChickenAdventure-release.apk
-          file build/ChickenAdventure-release.apk
-      - name: Export Android AAB
+          godot --headless --path . \
+            --export-release "Android APK" build/ChickenAdventure-release.apk
+      - name: Export AAB
         script: |
           set -e
-          echo "Exporting Android AAB..."
-          cd $CM_BUILD_DIR
-          
-          godot --headless --export-release "Android AAB" "$CM_BUILD_DIR/build/ChickenAdventure-release.aab" --path .
-          
-          if [ ! -f "build/ChickenAdventure-release.aab" ]; then
-            echo "Error: AAB file was not created"
-            exit 1
-          fi
-          
-          echo "AAB exported successfully"
-          ls -lh build/ChickenAdventure-release.aab
-          file build/ChickenAdventure-release.aab
-      - name: Verify artifacts
-        script: |
-          set -e
-          echo "Verifying build artifacts..."
-          cd $CM_BUILD_DIR
-          ls -la build/
-          echo ""
-          echo "Artifacts summary:"
-          du -h build/*.apk build/*.aab 2>/dev/null || true
+          godot --headless --path . \
+            --export-release "Android AAB" build/ChickenAdventure-release.aab
     artifacts:
       - build/*.apk
       - build/*.aab
-    publishing:
-      email:
-        recipients:
-          - user@example.com
-        notify:
-          success: true
-          failure: true

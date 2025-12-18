@@ -13,6 +13,7 @@ dist/
 # Keystore files (NEVER commit)
 *.jks
 *.keystore
+keystore.properties
 
 # Android build artifacts
 /android/build/

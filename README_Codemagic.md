@@ -8,38 +8,52 @@
 2. Репозиторий проекта на GitHub/GitLab/Bitbucket
 3. Release keystore файл (`-release.keystore`)
 
-## Шаг 1: Настройка переменных окружения в CodeMagic
+## Шаг 1: Загрузка keystore через Code signing identities
 
-В настройках проекта CodeMagic (Settings → Environment variables) создайте следующие переменные:
+**ВАЖНО:** Используйте **Code signing identities**, а НЕ Secure files!
 
-### Обязательные переменные:
-
-- **`KEYSTORE_PASSWORD`** — пароль от keystore файла
-- **`KEY_ALIAS`** — алиас ключа в keystore
-- **`KEY_PASSWORD`** — пароль от ключа (может совпадать с `KEYSTORE_PASSWORD`)
-
-### Опциональные переменные:
-
-- **`GODOT_VERSION`** — версия Godot (по умолчанию: `4.2.2`)
-
-**Важно:** Все пароли должны быть зашифрованы (CodeMagic автоматически шифрует значения переменных).
-
-## Шаг 2: Загрузка Secure File (keystore)
-
-1. Перейдите в **Settings → Secure files**
-2. Нажмите **Upload file**
-3. Загрузите файл `-release.keystore`
-4. Запомните имя файла (в нашем случае это `-release.keystore`)
-5. В настройках workflow (`codemagic.yaml`) убедитесь, что в секции `android_signing` указано:
-   ```yaml
-   android_signing:
-     - keystore_reference
-   ```
+1. Перейдите в **Settings → Code signing identities**
+2. Нажмите **Add identity**
+3. Выберите **Android keystore**
+4. Загрузите файл `-release.keystore`
+5. Введите:
+   - **Keystore password** — пароль от keystore
+   - **Key alias** — алиас ключа
+   - **Key password** — пароль от ключа (может совпадать с keystore password)
 
 **КРИТИЧЕСКИ ВАЖНО:** 
 - ❌ **НЕ коммитьте** `*.jks` или `*.keystore` файлы в репозиторий
-- ✅ Храните keystore **только** как Secure file в CodeMagic
+- ✅ Храните keystore **только** в Code signing identities в CodeMagic
 - ✅ Сделайте резервную копию keystore в безопасном месте (если потеряете — не сможете обновлять приложение в Google Play)
+
+### Что делает CodeMagic автоматически
+
+После загрузки keystore через Code signing identities, CodeMagic автоматически создаёт переменные окружения:
+
+- `CM_KEYSTORE_PATH` — путь к keystore файлу
+- `CM_KEYSTORE_PASSWORD` — пароль от keystore
+- `CM_KEY_ALIAS` — алиас ключа
+- `CM_KEY_PASSWORD` — пароль от ключа
+
+**Вам НЕ нужно создавать эти переменные вручную!**
+
+## Шаг 2: Настройка export_presets.cfg (один раз, локально)
+
+В Godot Editor (локально):
+
+1. Откройте **Project → Export**
+2. Добавьте пресет **Android**
+3. Настройте два пресета:
+   - **"Android APK"** — для APK файла
+   - **"Android AAB"** — для AAB файла (Google Play)
+4. В настройках Android:
+   - Включите **Use custom keystore**
+   - Укажите путь к keystore (например, `res://android_signing/-release.keystore`)
+   - Заполните alias и пароли **любыми заглушками** (они не используются на CI)
+5. Сохраните `export_presets.cfg`
+6. Закоммитьте `export_presets.cfg` **БЕЗ реального keystore файла**
+
+**Важно:** На CI Godot использует Gradle signing через переменные CodeMagic, а не значения из `export_presets.cfg`. Поэтому заглушки в пресетах не критичны.
 
 ## Шаг 3: Запуск сборки
 
@@ -61,11 +75,13 @@
 
 ```
 AdventureChicken/
-├── android_signing/          # Папка для keystore (создаётся автоматически на CI)
-│   └── -release.keystore    # Копируется из Secure files на CI (НЕ в репо!)
+├── android_signing/          # Папка для keystore (создаётся на CI)
+│   └── .gitkeep             # Пустая папка в репозитории
+│   └── release.jks          # Keystore копируется сюда на CI (НЕ коммитится!)
+├── keystore.properties      # Создаётся на CI с паролями (НЕ коммитится!)
 ├── build/                    # Папка для артефактов (игнорируется git)
 ├── codemagic.yaml            # Конфигурация CI/CD
-├── export_presets.cfg        # Настройки экспорта Godot
+├── export_presets.cfg        # Настройки экспорта Godot (путь к keystore указан)
 └── project.godot             # Проект Godot
 ```
 
@@ -74,6 +90,7 @@ AdventureChicken/
 Следующие файлы/папки **НЕ должны** попадать в репозиторий:
 
 - `*.jks`, `*.keystore` — keystore файлы
+- `keystore.properties` — файл с паролями (создаётся только на CI)
 - `build/`, `bin/`, `dist/` — папки с артефактами сборки
 - `*.apk`, `*.aab` — собранные приложения
 - `.godot/`, `.import/` — кэш Godot
@@ -81,26 +98,44 @@ AdventureChicken/
 
 Все эти пути уже добавлены в `.gitignore`.
 
+## Как это работает
+
+1. **Локально:** В `export_presets.cfg` указан путь к keystore (`res://android_signing/release.jks`) с пустыми паролями/алиасом
+2. **На CI:** 
+   - CodeMagic создаёт переменные `CM_KEYSTORE_PATH`, `CM_KEYSTORE_PASSWORD`, `CM_KEY_ALIAS`, `CM_KEY_PASSWORD`
+   - Шаг "Prepare Android signing" копирует keystore из CodeMagic в `android_signing/release.jks`
+   - Создаётся `keystore.properties` с паролями для Gradle
+3. **При экспорте:** Godot находит keystore по пути из `export_presets.cfg` и использует его для подписи
+
+**Преимущества этого подхода:**
+- ✅ Не нужно патчить `export_presets.cfg` на CI через sed
+- ✅ Keystore и пароли создаются только на CI, не коммитятся
+- ✅ Работает стабильно между версиями Godot
+- ✅ Keystore хранится безопасно в CodeMagic
+- ✅ Нет риска случайно закоммитить keystore или пароли
+
 ## Troubleshooting
 
 ### Ошибка: "Keystore file not found"
-- Убедитесь, что загрузили keystore как Secure file
-- Проверьте, что в `codemagic.yaml` указана секция `android_signing`
-
-### Ошибка: "KEYSTORE_PASSWORD environment variable is not set"
-- Создайте переменную окружения `KEYSTORE_PASSWORD` в настройках проекта
+- Убедитесь, что загрузили keystore через **Code signing identities** (НЕ Secure files!)
+- Проверьте, что keystore правильно настроен в настройках проекта
 
 ### Ошибка при экспорте: "Invalid keystore"
-- Проверьте правильность паролей и алиаса
+- Проверьте правильность паролей и алиаса в Code signing identities
 - Убедитесь, что keystore файл не повреждён
 
 ### APK/AAB не создаётся
 - Проверьте логи сборки на наличие ошибок
 - Убедитесь, что версия Godot в `GODOT_VERSION` соответствует версии проекта
 - Проверьте, что export templates установлены корректно
+- Убедитесь, что имена пресетов точно: **"Android APK"** и **"Android AAB"**
+
+### APK/AAB не подписан
+- Убедитесь, что keystore загружен через Code signing identities
+- Проверьте, что в `export_presets.cfg` включено **Use custom keystore** для обоих пресетов
 
 ## Дополнительная информация
 
 - [CodeMagic Documentation](https://docs.codemagic.io/)
+- [CodeMagic Android Code Signing](https://docs.codemagic.io/code-signing/android-code-signing/)
 - [Godot Export Documentation](https://docs.godotengine.org/en/stable/tutorials/export/exporting_for_android.html)
-
