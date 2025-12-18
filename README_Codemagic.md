@@ -74,8 +74,9 @@
    ```
 
 **Важно:** 
-- Папки `android/build/` и `android/.gradle/` игнорируются через `.gitignore`
-- Коммитить нужно только структуру template (build.gradle, settings.gradle, src/, gradle/ и т.д.)
+- Для AAB нужно коммитить `android/build/` — это часть Godot Android template, а не build-артефакты
+- Папка `android/.gradle/` игнорируется через `.gitignore` (это кэш Gradle)
+- Коммитить нужно полную структуру template: `android/build/`, `gradle/`, `src/`, `build.gradle`, `settings.gradle` и другие файлы
 - НЕ коммитьте keystore файлы (они уже в `.gitignore`)
 
 ## Шаг 3: Настройка export_presets.cfg (один раз, локально)
