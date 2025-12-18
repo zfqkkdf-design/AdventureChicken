@@ -1,0 +1,148 @@
+workflows:
+  android-workflow:
+    name: Android Build
+    max_build_duration: 120
+    instance_type: linux_x2
+    environment:
+      groups:
+        - codemagic
+      vars:
+        GODOT_VERSION: "4.2.2"
+        PROJECT_PATH: "."
+        EXPORT_PRESET: "Android"
+        PACKAGE_NAME: "com.example.runnertemplate"
+        VERSION_CODE: 1
+        VERSION_NAME: "1.0.0"
+      # android_signing:  # Не требуется до билда
+      #   - keystore_reference
+      node: 20.18.0
+    scripts:
+      - name: Install Godot and Export Templates
+        script: |
+          set -e
+          GODOT_VERSION="4.2.2"
+          GODOT_ZIP="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          GODOT_BIN="Godot_v${GODOT_VERSION}-stable_linux.x86_64"
+          TEMPLATES_ZIP="Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          
+          sudo apt-get update
+          sudo apt-get install -y wget unzip
+          
+          # Устанавливаем Godot
+          echo "Installing Godot ${GODOT_VERSION}..."
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${GODOT_ZIP}"
+          unzip -o "${GODOT_ZIP}"
+          chmod +x "${GODOT_BIN}"
+          sudo mv "${GODOT_BIN}" /usr/local/bin/godot
+          godot --version
+          
+          # Устанавливаем export templates для Android
+          echo "Installing Android export templates..."
+          # Используем абсолютный путь для templates (Codemagic использует пользователя builder)
+          TEMPLATES_BASE_DIR="/home/builder/.local/share/godot/export_templates"
+          TEMPLATES_DIR="${TEMPLATES_BASE_DIR}/${GODOT_VERSION}.stable"
+          mkdir -p "${TEMPLATES_DIR}"
+          cd /tmp
+          wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${TEMPLATES_ZIP}"
+          # Распаковываем templates
+          unzip -o "${TEMPLATES_ZIP}"
+          # Файл .tpz содержит папку templates/, внутри которой находятся APK файлы
+          if [ -d "templates" ]; then
+            echo "Found templates directory, checking structure..."
+            ls -la templates/
+            # Копируем содержимое templates/ в целевую директорию
+            # APK файлы должны быть напрямую в templates/
+            cp -r templates/* "${TEMPLATES_DIR}/"
+            echo "Templates copied to ${TEMPLATES_DIR}"
+          else
+            echo "Warning: templates directory not found, checking extracted files..."
+            ls -la
+            # Пробуем найти APK файлы и скопировать
+            find . -name "*.apk" -type f
+            # Копируем все файлы
+            cp -r * "${TEMPLATES_DIR}/" 2>/dev/null || true
+          fi
+          # Проверяем, что templates установлены в правильном месте
+          echo "Checking templates installation in ${TEMPLATES_DIR}..."
+          ls -la "${TEMPLATES_DIR}/" | head -20
+          # Проверяем наличие APK файлов напрямую в директории
+          if [ -f "${TEMPLATES_DIR}/android_debug.apk" ]; then
+            echo "✓ android_debug.apk found!"
+          fi
+          if [ -f "${TEMPLATES_DIR}/android_release.apk" ]; then
+            echo "✓ android_release.apk found!"
+          fi
+          # Ищем все APK файлы
+          echo "All APK files in templates directory:"
+          find "${TEMPLATES_DIR}" -name "*.apk" -type f
+      - name: Setup Debug Keystore
+        script: |
+          set -e
+          echo "Setting up debug keystore for Android export..."
+          cd $CM_BUILD_DIR
+          
+          # Устанавливаем Java (нужен для keytool)
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          
+          # Создаем директорию для keystore
+          KEYSTORE_DIR="$CM_BUILD_DIR/keystore"
+          mkdir -p "${KEYSTORE_DIR}"
+          DEBUG_KEYSTORE="${KEYSTORE_DIR}/debug.keystore"
+          
+          # Генерируем debug keystore (стандартный Android debug keystore)
+          # Используем стандартные параметры Android SDK
+          keytool -genkey -v \
+            -keystore "${DEBUG_KEYSTORE}" \
+            -alias androiddebugkey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass android \
+            -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US"
+          
+          echo "Debug keystore created at ${DEBUG_KEYSTORE}"
+          ls -lh "${DEBUG_KEYSTORE}"
+          
+          # Обновляем export_presets.cfg с путями к keystore
+          # Используем абсолютный путь для keystore
+          sed -i "s|keystore/debug=\"\"|keystore/debug=\"${DEBUG_KEYSTORE}\"|g" export_presets.cfg
+          sed -i "s|keystore/debug_user=\"\"|keystore/debug_user=\"android\"|g" export_presets.cfg
+          sed -i "s|keystore/debug_password=\"\"|keystore/debug_password=\"android\"|g" export_presets.cfg
+          sed -i "s|keystore/debug_alias=\"androiddebugkey\"|keystore/debug_alias=\"androiddebugkey\"|g" export_presets.cfg
+          
+          echo "export_presets.cfg updated with keystore paths"
+          # Проверяем изменения
+          grep "keystore/debug" export_presets.cfg
+      - name: Export Android Project
+        script: |
+          echo "Exporting Android project..."
+          cd $CM_BUILD_DIR
+          # Создаем директорию для билда
+          mkdir -p build
+          # Экспортируем Android проект через headless режим (debug версия)
+          # Используем абсолютный путь для выходного файла
+          godot --headless --export-debug "Android" "$CM_BUILD_DIR/build/RunnerTemplate.apk" --path .
+          if [ ! -f "build/RunnerTemplate.apk" ]; then
+            echo "Error: APK file was not created"
+            exit 1
+          fi
+          echo "APK exported successfully"
+          ls -lh build/
+    artifacts:
+      - build/*.apk
+      - build/*.aab
+    publishing:
+      email:
+        recipients:
+          - user@example.com
+        notify:
+          success: true
+          failure: true
+      scripts:
+        - name: Publish to Codemagic
+          script: |
+            echo "Publishing artifacts..."
+            ls -la build/
+
