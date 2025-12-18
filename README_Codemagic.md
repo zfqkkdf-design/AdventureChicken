@@ -39,6 +39,8 @@
 
 ## Шаг 2: Настройка export_presets.cfg (один раз, локально)
 
+**Важно:** Signing secrets не храним в repo. Подпись делается на CI через CodeMagic Code signing identities.
+
 В Godot Editor (локально):
 
 1. Откройте **Project → Export**
@@ -47,13 +49,12 @@
    - **"Android APK"** — для APK файла
    - **"Android AAB"** — для AAB файла (Google Play)
 4. В настройках Android:
-   - Включите **Use custom keystore**
-   - Укажите путь к keystore (например, `res://android_signing/-release.keystore`)
-   - Заполните alias и пароли **любыми заглушками** (они не используются на CI)
+   - **НЕ включайте** "Use custom keystore" (оставьте `package/signed=false`)
+   - Все keystore/release поля должны быть пустыми
 5. Сохраните `export_presets.cfg`
 6. Закоммитьте `export_presets.cfg` **БЕЗ реального keystore файла**
 
-**Важно:** На CI Godot использует Gradle signing через переменные CodeMagic, а не значения из `export_presets.cfg`. Поэтому заглушки в пресетах не критичны.
+**Важно:** На CI Godot экспортирует без подписи из `export_presets.cfg`, но подпись выполняется через Gradle с использованием `keystore.properties`, который создаётся на CI из переменных CodeMagic.
 
 ## Шаг 3: Запуск сборки
 
