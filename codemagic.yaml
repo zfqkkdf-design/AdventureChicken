@@ -41,7 +41,9 @@ workflows:
           # Диагностический вывод переменных CodeMagic
           echo "=== CodeMagic signing variables diagnostics ==="
           echo "CM_KEYSTORE_PATH=$CM_KEYSTORE_PATH"
-          env | grep -E '^CM_KEYSTORE|^CM_KEY_ALIAS|^CM_KEY_PASSWORD' || true
+          [ -n "$CM_KEYSTORE_PASSWORD" ] && echo "CM_KEYSTORE_PASSWORD is SET" || echo "CM_KEYSTORE_PASSWORD is EMPTY"
+          [ -n "$CM_KEY_ALIAS" ] && echo "CM_KEY_ALIAS is SET" || echo "CM_KEY_ALIAS is EMPTY"
+          [ -z "$CM_KEY_PASSWORD" ] && echo "CM_KEY_PASSWORD is EMPTY" || echo "CM_KEY_PASSWORD is SET"
           ls -la "$CM_KEYSTORE_PATH" || true
           echo "================================================"
           
@@ -49,7 +51,13 @@ workflows:
           test -f "$CM_KEYSTORE_PATH" || (echo "CM_KEYSTORE_PATH not found" && exit 1)
           test -n "$CM_KEYSTORE_PASSWORD" || (echo "CM_KEYSTORE_PASSWORD empty" && exit 1)
           test -n "$CM_KEY_ALIAS" || (echo "CM_KEY_ALIAS empty" && exit 1)
-          test -n "$CM_KEY_PASSWORD" || (echo "CM_KEY_PASSWORD empty" && exit 1)
+          
+          # Fallback для CM_KEY_PASSWORD: если пустой, используем CM_KEYSTORE_PASSWORD
+          KEY_PASSWORD_EFFECTIVE="$CM_KEY_PASSWORD"
+          if [ -z "$KEY_PASSWORD_EFFECTIVE" ]; then
+            echo "CM_KEY_PASSWORD is empty, falling back to CM_KEYSTORE_PASSWORD"
+            KEY_PASSWORD_EFFECTIVE="$CM_KEYSTORE_PASSWORD"
+          fi
           
           # Кладем keystore в проект (НЕ коммитим)
           mkdir -p android_signing
@@ -60,7 +68,7 @@ workflows:
           storeFile=android_signing/release.jks
           storePassword=$CM_KEYSTORE_PASSWORD
           keyAlias=$CM_KEY_ALIAS
-          keyPassword=$CM_KEY_PASSWORD
+          keyPassword=$KEY_PASSWORD_EFFECTIVE
           EOF
           
           echo "Prepared keystore + keystore.properties"
