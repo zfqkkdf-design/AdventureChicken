@@ -37,17 +37,58 @@
 
 **Вам НЕ нужно создавать эти переменные вручную!**
 
-## Шаг 2: Настройка export_presets.cfg (один раз, локально)
+## Шаг 2: Установка Android Build Template (обязательно для AAB)
+
+**ВАЖНО:** 
+- ✅ **APK можно собирать без Android template**
+- ❌ **AAB ВСЕГДА требует Gradle template**
+- ❌ `android/build/` ≠ установленный template
+- ✅ нужен полный `android/` в корне проекта
+
+Для экспорта AAB через Gradle необходимо установить Android build template в проект.
+
+### Инструкция по установке Android template:
+
+1. **Откройте проект в Godot Editor**
+
+2. **Удалите существующую папку `android/` (если есть):**
+   - Закройте Godot Editor
+   - Удалите папку `res://android/` (или `android/` в корне проекта)
+   - Это важно для чистой установки template
+
+3. **Установите Android template через Godot:**
+   - Откройте **Project → Export**
+   - Выберите пресет **"Android AAB"** (или любой Android пресет)
+   - Включите **"Use Gradle Build"** (`gradle_build/use_gradle_build=true`)
+   - Нажмите **"Export"** или **"Export Project"** (не обязательно экспортировать файл, достаточно генерации template)
+   - Godot автоматически создаст папку `android/` с полным Gradle template
+
+4. **Проверьте структуру:**
+   - Убедитесь, что появилась папка `android/`
+   - В ней должны быть: `build/`, `gradle/`, `src/`, `build.gradle`, `settings.gradle` и другие файлы
+
+5. **Закоммитьте Android template:**
+   ```bash
+   git add android/
+   git commit -m "Add Android Gradle build template for AAB export"
+   ```
+
+**Важно:** 
+- Папки `android/build/` и `android/.gradle/` игнорируются через `.gitignore`
+- Коммитить нужно только структуру template (build.gradle, settings.gradle, src/, gradle/ и т.д.)
+- НЕ коммитьте keystore файлы (они уже в `.gitignore`)
+
+## Шаг 3: Настройка export_presets.cfg (один раз, локально)
 
 **Важно:** Signing secrets не храним в repo. Подпись делается на CI через CodeMagic Code signing identities.
 
 В Godot Editor (локально):
 
 1. Откройте **Project → Export**
-2. Добавьте пресет **Android**
+2. Добавьте пресет **Android** (если ещё нет)
 3. Настройте два пресета:
-   - **"Android APK"** — для APK файла
-   - **"Android AAB"** — для AAB файла (Google Play)
+   - **"Android APK"** — для APK файла (`use_gradle_build=false`)
+   - **"Android AAB"** — для AAB файла (`use_gradle_build=true`)
 4. В настройках Android:
    - **НЕ включайте** "Use custom keystore" (оставьте `package/signed=false`)
    - Все keystore/release поля должны быть пустыми
@@ -63,7 +104,7 @@
 3. Нажмите **Start new build**
 4. Выберите ветку/коммит для сборки
 
-## Шаг 4: Получение артефактов
+## Шаг 5: Получение артефактов
 
 После успешной сборки:
 
