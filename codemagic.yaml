@@ -1,6 +1,6 @@
 workflows:
-  android-workflow:
-    name: Android Build
+  android-release:
+    name: Android Release Build
     max_build_duration: 120
     instance_type: linux_x2
     environment:
@@ -8,128 +8,139 @@ workflows:
         - codemagic
       vars:
         GODOT_VERSION: "4.2.2"
-        PROJECT_PATH: "."
-        EXPORT_PRESET: "Android"
-        PACKAGE_NAME: "com.example.runnertemplate"
-        VERSION_CODE: 1
-        VERSION_NAME: "1.0.0"
-      # android_signing:  # Не требуется до билда
-      #   - keystore_reference
-      node: 20.18.0
+      android_signing:
+        - keystore_reference
     scripts:
+      - name: Install dependencies
+        script: |
+          set -e
+          echo "Installing dependencies..."
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk unzip wget
+          java -version
+          javac -version
       - name: Install Godot and Export Templates
         script: |
           set -e
-          GODOT_VERSION="4.2.2"
+          GODOT_VERSION="${GODOT_VERSION:-4.2.2}"
           GODOT_ZIP="Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
           GODOT_BIN="Godot_v${GODOT_VERSION}-stable_linux.x86_64"
           TEMPLATES_ZIP="Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
           
-          sudo apt-get update
-          sudo apt-get install -y wget unzip
-          
-          # Устанавливаем Godot
           echo "Installing Godot ${GODOT_VERSION}..."
+          cd /tmp
           wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${GODOT_ZIP}"
           unzip -o "${GODOT_ZIP}"
           chmod +x "${GODOT_BIN}"
           sudo mv "${GODOT_BIN}" /usr/local/bin/godot
           godot --version
           
-          # Устанавливаем export templates для Android
           echo "Installing Android export templates..."
-          # Используем абсолютный путь для templates (Codemagic использует пользователя builder)
           TEMPLATES_BASE_DIR="/home/builder/.local/share/godot/export_templates"
           TEMPLATES_DIR="${TEMPLATES_BASE_DIR}/${GODOT_VERSION}.stable"
           mkdir -p "${TEMPLATES_DIR}"
-          cd /tmp
           wget -q "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/${TEMPLATES_ZIP}"
-          # Распаковываем templates
           unzip -o "${TEMPLATES_ZIP}"
-          # Файл .tpz содержит папку templates/, внутри которой находятся APK файлы
+          
           if [ -d "templates" ]; then
-            echo "Found templates directory, checking structure..."
-            ls -la templates/
-            # Копируем содержимое templates/ в целевую директорию
-            # APK файлы должны быть напрямую в templates/
+            echo "Found templates directory, copying..."
             cp -r templates/* "${TEMPLATES_DIR}/"
             echo "Templates copied to ${TEMPLATES_DIR}"
           else
-            echo "Warning: templates directory not found, checking extracted files..."
-            ls -la
-            # Пробуем найти APK файлы и скопировать
-            find . -name "*.apk" -type f
-            # Копируем все файлы
+            echo "Warning: templates directory not found, copying all files..."
             cp -r * "${TEMPLATES_DIR}/" 2>/dev/null || true
           fi
-          # Проверяем, что templates установлены в правильном месте
-          echo "Checking templates installation in ${TEMPLATES_DIR}..."
+          
+          echo "Checking templates installation..."
           ls -la "${TEMPLATES_DIR}/" | head -20
-          # Проверяем наличие APK файлов напрямую в директории
-          if [ -f "${TEMPLATES_DIR}/android_debug.apk" ]; then
-            echo "✓ android_debug.apk found!"
-          fi
-          if [ -f "${TEMPLATES_DIR}/android_release.apk" ]; then
-            echo "✓ android_release.apk found!"
-          fi
-          # Ищем все APK файлы
-          echo "All APK files in templates directory:"
-          find "${TEMPLATES_DIR}" -name "*.apk" -type f
-      - name: Setup Debug Keystore
+          find "${TEMPLATES_DIR}" -name "*.apk" -type f | head -5
+      - name: Setup release keystore
         script: |
           set -e
-          echo "Setting up debug keystore for Android export..."
+          echo "Setting up release keystore..."
           cd $CM_BUILD_DIR
-          
-          # Устанавливаем Java (нужен для keytool)
-          sudo apt-get update
-          sudo apt-get install -y openjdk-17-jdk
           
           # Создаем директорию для keystore
-          KEYSTORE_DIR="$CM_BUILD_DIR/keystore"
+          KEYSTORE_DIR="$CM_BUILD_DIR/android_signing"
           mkdir -p "${KEYSTORE_DIR}"
-          DEBUG_KEYSTORE="${KEYSTORE_DIR}/debug.keystore"
           
-          # Генерируем debug keystore (стандартный Android debug keystore)
-          # Используем стандартные параметры Android SDK
-          keytool -genkey -v \
-            -keystore "${DEBUG_KEYSTORE}" \
-            -alias androiddebugkey \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -storepass android \
-            -keypass android \
-            -dname "CN=Android Debug,O=Android,C=US"
+          # Копируем secure file -release.keystore в проект
+          if [ -f "$CM_KEYSTORE_PATH" ]; then
+            echo "Copying keystore from secure files..."
+            cp "$CM_KEYSTORE_PATH" "${KEYSTORE_DIR}/-release.keystore"
+            echo "Keystore copied to ${KEYSTORE_DIR}/-release.keystore"
+            ls -lh "${KEYSTORE_DIR}/-release.keystore"
+          else
+            echo "Error: Keystore file not found at $CM_KEYSTORE_PATH"
+            exit 1
+          fi
           
-          echo "Debug keystore created at ${DEBUG_KEYSTORE}"
-          ls -lh "${DEBUG_KEYSTORE}"
+          # Проверяем переменные окружения
+          if [ -z "$KEYSTORE_PASSWORD" ]; then
+            echo "Error: KEYSTORE_PASSWORD environment variable is not set"
+            exit 1
+          fi
+          if [ -z "$KEY_ALIAS" ]; then
+            echo "Error: KEY_ALIAS environment variable is not set"
+            exit 1
+          fi
+          if [ -z "$KEY_PASSWORD" ]; then
+            echo "Error: KEY_PASSWORD environment variable is not set"
+            exit 1
+          fi
           
-          # Обновляем export_presets.cfg с путями к keystore
-          # Используем абсолютный путь для keystore
-          sed -i "s|keystore/debug=\"\"|keystore/debug=\"${DEBUG_KEYSTORE}\"|g" export_presets.cfg
-          sed -i "s|keystore/debug_user=\"\"|keystore/debug_user=\"android\"|g" export_presets.cfg
-          sed -i "s|keystore/debug_password=\"\"|keystore/debug_password=\"android\"|g" export_presets.cfg
-          sed -i "s|keystore/debug_alias=\"androiddebugkey\"|keystore/debug_alias=\"androiddebugkey\"|g" export_presets.cfg
+          # Обновляем export_presets.cfg с паролями и алиасом
+          # Используем абсолютный путь для keystore в export_presets.cfg
+          ABS_KEYSTORE_PATH="${KEYSTORE_DIR}/-release.keystore"
+          sed -i "s|keystore/release=\"res://android_signing/-release.keystore\"|keystore/release=\"${ABS_KEYSTORE_PATH}\"|g" export_presets.cfg
+          sed -i "s|keystore/release_user=\"\"|keystore/release_user=\"${KEYSTORE_PASSWORD}\"|g" export_presets.cfg
+          sed -i "s|keystore/release_password=\"\"|keystore/release_password=\"${KEY_PASSWORD}\"|g" export_presets.cfg
+          sed -i "s|keystore/release_alias=\"\"|keystore/release_alias=\"${KEY_ALIAS}\"|g" export_presets.cfg
           
-          echo "export_presets.cfg updated with keystore paths"
-          # Проверяем изменения
-          grep "keystore/debug" export_presets.cfg
-      - name: Export Android Project
+          echo "export_presets.cfg updated with keystore configuration"
+          grep "keystore/release" export_presets.cfg
+      - name: Export Android APK
         script: |
-          echo "Exporting Android project..."
+          set -e
+          echo "Exporting Android APK..."
           cd $CM_BUILD_DIR
-          # Создаем директорию для билда
           mkdir -p build
-          # Экспортируем Android проект через headless режим (debug версия)
-          # Используем абсолютный путь для выходного файла
-          godot --headless --export-debug "Android" "$CM_BUILD_DIR/build/RunnerTemplate.apk" --path .
-          if [ ! -f "build/RunnerTemplate.apk" ]; then
+          
+          godot --headless --export-release "Android APK" "$CM_BUILD_DIR/build/ChickenAdventure-release.apk" --path .
+          
+          if [ ! -f "build/ChickenAdventure-release.apk" ]; then
             echo "Error: APK file was not created"
             exit 1
           fi
+          
           echo "APK exported successfully"
-          ls -lh build/
+          ls -lh build/ChickenAdventure-release.apk
+          file build/ChickenAdventure-release.apk
+      - name: Export Android AAB
+        script: |
+          set -e
+          echo "Exporting Android AAB..."
+          cd $CM_BUILD_DIR
+          
+          godot --headless --export-release "Android AAB" "$CM_BUILD_DIR/build/ChickenAdventure-release.aab" --path .
+          
+          if [ ! -f "build/ChickenAdventure-release.aab" ]; then
+            echo "Error: AAB file was not created"
+            exit 1
+          fi
+          
+          echo "AAB exported successfully"
+          ls -lh build/ChickenAdventure-release.aab
+          file build/ChickenAdventure-release.aab
+      - name: Verify artifacts
+        script: |
+          set -e
+          echo "Verifying build artifacts..."
+          cd $CM_BUILD_DIR
+          ls -la build/
+          echo ""
+          echo "Artifacts summary:"
+          du -h build/*.apk build/*.aab 2>/dev/null || true
     artifacts:
       - build/*.apk
       - build/*.aab
@@ -140,9 +151,3 @@ workflows:
         notify:
           success: true
           failure: true
-      scripts:
-        - name: Publish to Codemagic
-          script: |
-            echo "Publishing artifacts..."
-            ls -la build/
-
