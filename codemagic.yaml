@@ -17,6 +17,15 @@ workflows:
           sudo apt-get update
           sudo apt-get install -y openjdk-17-jdk unzip wget
           java -version
+      - name: Ensure Android SDK packages (platform 35 / build-tools 35)
+        script: |
+          set -e
+          if command -v sdkmanager >/dev/null 2>&1; then
+            yes | sdkmanager "platform-tools" "build-tools;35.0.0" "platforms;android-35" "cmdline-tools;latest" || true
+            sdkmanager --list | head -n 50 || true
+          else
+            echo "sdkmanager not found, using preinstalled Android SDK"
+          fi
       - name: Install Godot and export templates
         script: |
           set -e
@@ -40,7 +49,6 @@ workflows:
           set -e
           cd $CM_BUILD_DIR
           
-          # Диагностический вывод переменных CodeMagic
           echo "=== CodeMagic signing variables diagnostics ==="
           echo "CM_KEYSTORE_PATH=$CM_KEYSTORE_PATH"
           [ -n "$CM_KEYSTORE_PASSWORD" ] && echo "CM_KEYSTORE_PASSWORD is SET" || echo "CM_KEYSTORE_PASSWORD is EMPTY"
@@ -49,31 +57,27 @@ workflows:
           ls -la "$CM_KEYSTORE_PATH" || true
           echo "================================================"
           
-          # Проверим, что CodeMagic реально дал переменные
           test -f "$CM_KEYSTORE_PATH" || (echo "CM_KEYSTORE_PATH not found" && exit 1)
           test -n "$CM_KEYSTORE_PASSWORD" || (echo "CM_KEYSTORE_PASSWORD empty" && exit 1)
           test -n "$CM_KEY_ALIAS" || (echo "CM_KEY_ALIAS empty" && exit 1)
           
-          # Fallback для CM_KEY_PASSWORD: если пустой, используем CM_KEYSTORE_PASSWORD
           KEY_PASSWORD_EFFECTIVE="$CM_KEY_PASSWORD"
           if [ -z "$KEY_PASSWORD_EFFECTIVE" ]; then
             echo "CM_KEY_PASSWORD is empty, falling back to CM_KEYSTORE_PASSWORD"
             KEY_PASSWORD_EFFECTIVE="$CM_KEYSTORE_PASSWORD"
           fi
           
-          # Кладем keystore в проект (НЕ коммитим)
           mkdir -p android_signing
           cp "$CM_KEYSTORE_PATH" android_signing/release.jks
           
-          # Создаём keystore.properties для Gradle (НЕ коммитим)
-          cat > keystore.properties <<EOF
-          storeFile=android_signing/release.jks
-          storePassword=$CM_KEYSTORE_PASSWORD
-          keyAlias=$CM_KEY_ALIAS
-          keyPassword=$KEY_PASSWORD_EFFECTIVE
-          EOF
+          # 🔥 ВАЖНО: сказать Godot CLI где keystore (через env vars)
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PATH=$CM_BUILD_DIR/android_signing/release.jks" >> $CM_ENV
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_USER=$CM_KEY_ALIAS" >> $CM_ENV
+          echo "GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD=$KEY_PASSWORD_EFFECTIVE" >> $CM_ENV
           
-          echo "Prepared keystore + keystore.properties"
+          echo "Prepared keystore + GODOT_* env vars"
+          echo "Checking $CM_ENV contents:"
+          cat $CM_ENV | tail -n 20 || true
           ls -la android_signing
       - name: Fix Gradle wrapper permissions
         script: |
