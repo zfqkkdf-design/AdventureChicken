@@ -7,7 +7,7 @@ workflows:
       groups:
         - codemagic
       vars:
-        GODOT_VERSION: "4.2.2"
+        GODOT_VERSION: "4.5.1"
       android_signing:
         - "1"
     scripts:
@@ -20,6 +20,7 @@ workflows:
       - name: Install Godot and export templates
         script: |
           set -e
+          echo "Using GODOT_VERSION=$GODOT_VERSION"
           cd /tmp
           
           wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip
@@ -27,12 +28,13 @@ workflows:
           chmod +x Godot_v${GODOT_VERSION}-stable_linux.x86_64
           sudo mv Godot_v${GODOT_VERSION}-stable_linux.x86_64 /usr/local/bin/godot
           
+          which godot
+          godot --version
+          
           mkdir -p ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
           wget -q https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz
           unzip Godot_v${GODOT_VERSION}-stable_export_templates.tpz
           cp -r templates/* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
-          
-          godot --version
       - name: Prepare Android signing (from CodeMagic identities)
         script: |
           set -e
