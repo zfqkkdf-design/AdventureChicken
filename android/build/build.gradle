@@ -37,6 +37,9 @@ dependencies {
     implementation "androidx.fragment:fragment:$versions.fragmentVersion"
     implementation "androidx.core:core-splashscreen:$versions.splashscreenVersion"
 
+    // Force Godot classes on classpath for CI (no local AAR in repo)
+    implementation "org.godotengine:godot:4.5.1.stable"
+
     if (rootProject.findProject(":lib")) {
         implementation project(":lib")
     } else if (rootProject.findProject(":godot:lib")) {
@@ -44,8 +47,7 @@ dependencies {
     } else {
         // Godot gradle build mode. Using Maven dependency instead of local .aar files.
         // This allows CI builds without storing large .aar files in the repository.
-        // Note: Using release variant for all build types - adjust if needed.
-        implementation "org.godotengine:godot:4.5.1.stable"
+        // Note: Maven dependency is already added above for all cases.
     }
 
     // Godot user plugins remote dependencies

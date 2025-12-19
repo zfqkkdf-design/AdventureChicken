@@ -88,6 +88,14 @@ workflows:
           mkdir -p build
           godot --headless --path . \
             --export-release "Android APK" build/ChickenAdventure-release.apk
+      - name: Gradle diagnostics (modules + deps)
+        script: |
+          set -e
+          cd $CM_BUILD_DIR/android/build
+          chmod +x ./gradlew
+          ./gradlew projects
+          ./gradlew dependencies --configuration standardReleaseCompileClasspath || true
+          ./gradlew dependencies --configuration standardReleaseRuntimeClasspath || true
       - name: Export AAB
         script: |
           set -e
