@@ -105,6 +105,14 @@ workflows:
           set -e
           godot --headless --path . \
             --export-release "Android AAB" build/ChickenAdventure-release.aab
+      - name: Verify signatures (APK/AAB)
+        script: |
+          set -e
+          echo "=== APK signature ==="
+          apksigner verify --print-certs build/ChickenAdventure-release.apk
+          
+          echo "=== AAB signature (jarsigner) ==="
+          jarsigner -verify -verbose -certs build/ChickenAdventure-release.aab | head -n 80
     artifacts:
       - build/*.apk
       - build/*.aab
