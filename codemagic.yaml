@@ -75,6 +75,13 @@ workflows:
           
           echo "Prepared keystore + keystore.properties"
           ls -la android_signing
+      - name: Fix Gradle wrapper permissions
+        script: |
+          set -e
+          cd $CM_BUILD_DIR
+          ls -la android/build/gradlew || true
+          chmod +x android/build/gradlew
+          ls -la android/build/gradlew
       - name: Export APK
         script: |
           set -e
