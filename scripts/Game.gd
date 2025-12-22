@@ -746,9 +746,9 @@ func spawn_air_obstacle():
 	if player:
 		await get_tree().process_frame  # Ждем один кадр, чтобы _ready() выполнился
 		var player_ground_y = player.ground_y
-		# Птица появляется на высоте прыжка (примерно 120 пикселей выше земли)
+		# Птица появляется ниже (примерно 60 пикселей выше земли)
 		# Это высота, на которой игрок может столкнуться с птицей во время прыжка
-		var air_height = 120.0
+		var air_height = 60.0
 		var bird_y = player_ground_y - air_height
 		obstacle.position.y = bird_y
 		# Дополнительно устанавливаем через call_deferred для гарантии

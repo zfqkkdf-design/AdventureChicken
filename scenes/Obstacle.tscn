@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://c51pisobo6o7f" path="res://assets/obstacle ground/Group (3).png" id="2_hay"]
 
 [sub_resource type="RectangleShape2D" id="1_rect"]
-size = Vector2(50, 50)
+size = Vector2(117, 50)
 
 [node name="Obstacle" type="Area2D"]
 script = ExtResource("1_1")
