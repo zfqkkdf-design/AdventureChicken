@@ -13,7 +13,7 @@ config_version=5
 config/name="ChickenRunner"
 run/main_scene="res://scenes/Loading.tscn"
 config/features=PackedStringArray("4.5", "GL Compatibility")
-config/icon="uid://cmfmcyo28f0ic"
+config/icon="uid://y2ercrgbbr3k"
 
 [autoload]
 
