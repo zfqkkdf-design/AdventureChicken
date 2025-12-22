@@ -42,7 +42,7 @@ android/.gradle/
 android/build/.gradle/
 android/build/app/
 android/build/build/
-android/.build_version
+# android/.build_version - NEEDED for gradle template, do not ignore!
 android/local.properties
 
 # IDE files

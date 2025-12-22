@@ -79,6 +79,18 @@ workflows:
           echo "Checking $CM_ENV contents:"
           cat $CM_ENV | tail -n 20 || true
           ls -la android_signing
+      - name: Ensure Android build version file
+        script: |
+          set -e
+          cd $CM_BUILD_DIR
+          # Create .build_version file if it doesn't exist (required for gradle template)
+          if [ ! -f android/.build_version ]; then
+            echo "${GODOT_VERSION}.stable" > android/.build_version
+            echo "Created android/.build_version with version ${GODOT_VERSION}.stable"
+          else
+            echo "android/.build_version already exists"
+            cat android/.build_version
+          fi
       - name: Fix Gradle wrapper permissions
         script: |
           set -e
