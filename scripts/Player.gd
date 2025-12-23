@@ -26,10 +26,10 @@ var game_node = null
 
 # Текстуры для состояний
 @onready var sprite = $Sprite2D
-var texture_stand = preload("res://assets/player/Group 827.png")
-var texture_run = preload("res://assets/player/Group 828.png")
-var texture_fly = preload("res://assets/player/Group (1).png")
-var texture_duck = preload("res://assets/player/Group 829.png")
+var texture_stand = preload("res://вектор/game_objects/player/Group 827.svg")
+var texture_run = preload("res://вектор/game_objects/player/Group 828.svg")
+var texture_fly = preload("res://вектор/game_objects/player/Group (1).svg")
+var texture_duck = preload("res://вектор/game_objects/player/Group 829.svg")
 
 # Анимация бега
 var run_animation_time: float = 0.0
@@ -41,6 +41,9 @@ func _ready():
 	
 	# Кешируем ссылку на game
 	game_node = get_tree().get_first_node_in_group("game")
+	
+	# Настройка четкой фильтрации текстур (без размытия при масштабировании)
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	
 	# Получаем начальную позицию земли
 	var viewport = get_viewport()

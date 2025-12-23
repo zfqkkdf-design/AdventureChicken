@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3 uid="uid://vnrpx7wg8ftc"]
+[gd_scene load_steps=20 format=3 uid="uid://vnrpx7wg8ftc"]
 
 [ext_resource type="Script" uid="uid://dby60suis42j2" path="res://scripts/Game.gd" id="1_1"]
 [ext_resource type="PackedScene" uid="uid://b3k4m5n6p7q8" path="res://scenes/Player.tscn" id="1_2"]
@@ -8,8 +8,8 @@
 [ext_resource type="Texture2D" uid="uid://cmk45nvainepp" path="res://assets/ui/Group 821.png" id="5_controls"]
 [ext_resource type="Texture2D" uid="uid://n58vwubsaorl" path="res://assets/obstacle bonus/image 1951.png" id="6_egg"]
 [ext_resource type="FontFile" uid="uid://bgwms2w82cyjx" path="res://font/DynaPuff-Bold.ttf" id="7_font"]
-[ext_resource type="Texture2D" uid="uid://5n4g4qr1sm4u" path="res://assets/sunmoon/Group 822.png" id="8_sun"]
-[ext_resource type="Texture2D" uid="uid://c56qolqldn6ce" path="res://assets/sunmoon/Group 830.png" id="9_moon"]
+[ext_resource type="Texture2D" uid="uid://dogbh8vo6e84n" path="res://вектор/environment/sunmoon/sun.svg" id="8_sun"]
+[ext_resource type="Texture2D" uid="uid://lpg0exhwxnmj" path="res://вектор/environment/sunmoon/moon.svg" id="9_moon"]
 [ext_resource type="Texture2D" uid="uid://c7sb1qt82a54l" path="res://assets/background/background game/Group (5).png" id="10_cloud"]
 [ext_resource type="Texture2D" uid="uid://dawwk8nuy3xvs" path="res://assets/background/background game/Group (7).png" id="11_background"]
 [ext_resource type="Texture2D" uid="uid://dhd06mwsy2sxq" path="res://assets/background/pause/Group 814.png" id="12_restart"]
@@ -23,6 +23,13 @@ colors = PackedColorArray(1, 1, 0.431, 1, 1, 1, 0.886, 1)
 gradient = SubResource("Gradient_1")
 fill_from = Vector2(0.5, 0)
 fill_to = Vector2(0.5, 1)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_empty"]
+bg_color = Color(0, 0, 0, 0)
+border_width_left = 0
+border_width_top = 0
+border_width_right = 0
+border_width_bottom = 0
 
 [node name="Game" type="Node2D"]
 process_mode = 3
@@ -106,6 +113,7 @@ stretch_mode = 6
 [node name="GameplayLayer" type="CanvasLayer" parent="."]
 
 [node name="Player" parent="GameplayLayer" instance=ExtResource("1_2")]
+scale = Vector2(1.059726, 1.059726)
 
 [node name="UI" type="CanvasLayer" parent="."]
 process_mode = 3
@@ -185,7 +193,12 @@ offset_right = 57.0
 offset_bottom = -93.0
 grow_horizontal = 2
 grow_vertical = 0
+focus_mode = 0
 flat = true
+theme_override_styles/normal = SubResource("StyleBoxFlat_empty")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_empty")
+theme_override_styles/hover = SubResource("StyleBoxFlat_empty")
+theme_override_styles/focus = SubResource("StyleBoxFlat_empty")
 
 [node name="DownButton" type="Button" parent="UI/ControlsContainer"]
 layout_mode = 1
@@ -200,7 +213,12 @@ offset_right = 54.0
 offset_bottom = -8.0
 grow_horizontal = 2
 grow_vertical = 0
+focus_mode = 0
 flat = true
+theme_override_styles/normal = SubResource("StyleBoxFlat_empty")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_empty")
+theme_override_styles/hover = SubResource("StyleBoxFlat_empty")
+theme_override_styles/focus = SubResource("StyleBoxFlat_empty")
 
 [node name="ControlsTexture" type="TextureRect" parent="UI/ControlsContainer"]
 layout_mode = 1

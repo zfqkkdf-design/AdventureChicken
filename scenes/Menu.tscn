@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cn38tsghdw5sd" path="res://scripts/Menu.gd" id="1_1"]
 [ext_resource type="Texture2D" uid="uid://c0qn8jwv7vqoi" path="res://assets/background/Group.png" id="2_5d8b5"]
-[ext_resource type="Texture2D" uid="uid://chvik5jf6nqme" path="res://assets/background/icon/ChatGPT Image 16 дек. 2025 г., 18_29_22 1.png" id="3_y56h7"]
+[ext_resource type="Texture2D" uid="uid://fo3icuwrp83w" path="res://assets/background/icon/ChatGPT Image 16 дек. 2025 г., 18_29_22 1.png" id="3_y56h7"]
 [ext_resource type="FontFile" uid="uid://bgwms2w82cyjx" path="res://font/DynaPuff-Bold.ttf" id="4_font"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
@@ -59,12 +59,13 @@ anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -179.0
-offset_top = -150.0
-offset_right = 179.0
-offset_bottom = 50.0
+offset_left = -172.0
+offset_top = -137.5
+offset_right = 3408.0
+offset_bottom = 2249.5
 grow_horizontal = 2
 grow_vertical = 2
+scale = Vector2(0.1, 0.1)
 texture = ExtResource("3_y56h7")
 stretch_mode = 4
 

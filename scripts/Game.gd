@@ -60,7 +60,7 @@ var lives: int = 3  # 3 жизни
 var max_lives: int = 3
 var is_paused: bool = false
 var spawn_timer: float = 0.0
-var spawn_interval: float = 2.0
+var spawn_interval: float = 1.2  # Уменьшено с 2.0 до 1.2 секунды для более частого спавна
 var screen_width: float = 1080.0
 var screen_height: float = 1920.0
 var game_started: bool = false
@@ -700,15 +700,15 @@ func spawn_objects():
 	# Случайно решаем, что спавнить
 	var rand = randf()
 	
-	if rand < 0.25:  # 25% шанс на наземное препятствие
+	if rand < 0.4:  # 40% шанс на наземное препятствие (увеличено с 25%)
 		spawn_obstacle()
-	elif rand < 0.35:  # 10% шанс на воздушное препятствие (птица)
+	elif rand < 0.55:  # 15% шанс на воздушное препятствие (птица) (увеличено с 10%)
 		spawn_air_obstacle()
-	elif rand < 0.6:  # 25% шанс на яйцо
+	elif rand < 0.75:  # 20% шанс на яйцо (уменьшено с 25%)
 		spawn_egg()
-	elif rand < 0.85:  # 25% шанс на семечко
+	elif rand < 0.95:  # 20% шанс на семечко (уменьшено с 25%)
 		spawn_seed()
-	# 15% шанс ничего не спавнить
+	# 5% шанс ничего не спавнить (уменьшено с 15%)
 
 func spawn_obstacle():
 	var obstacle = OBSTACLE_SCENE.instantiate()
